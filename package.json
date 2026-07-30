@@ -1,10 +1,28 @@
 {
   "name": "versioned-content-engine",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Headless, zero-runtime-dependency pure TypeScript engine for versioned content materialization.",
   "type": "module",
   "license": "MIT",
   "author": "Daniel Cassil <me@danielcassil.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dcassil/versioned-content-engine.git"
+  },
+  "homepage": "https://github.com/dcassil/versioned-content-engine#readme",
+  "bugs": {
+    "url": "https://github.com/dcassil/versioned-content-engine/issues"
+  },
+  "keywords": [
+    "versioning",
+    "content",
+    "materialize",
+    "append-only",
+    "immutable",
+    "cms",
+    "draft",
+    "headless"
+  ],
   "sideEffects": false,
   "files": [
     "dist"
