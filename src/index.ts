@@ -25,6 +25,14 @@ export type { IdStrategy, VersionClock } from "./strategies.js";
 export { materialize } from "./materialize.js";
 export { reindex, canonicalCompare } from "./reindex.js";
 
+export { createContent } from "./operations/create.js";
+export { updateContent } from "./operations/update.js";
+export type {
+  OperationDeps,
+  CreateContentArgs,
+} from "./operations/create.js";
+export type { UpdateContentArgs } from "./operations/update.js";
+
 export {
   DefaultIdStrategy,
   IntegerVersionClock,
