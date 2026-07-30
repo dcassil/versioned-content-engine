@@ -25,6 +25,10 @@
       "types": "./dist/adapters/json/index.d.ts",
       "import": "./dist/adapters/json/index.js"
     },
+    "./sql": {
+      "types": "./dist/adapters/sql/index.d.ts",
+      "import": "./dist/adapters/sql/index.js"
+    },
     "./react": {
       "types": "./dist/adapters/react/index.d.ts",
       "import": "./dist/adapters/react/index.js"
