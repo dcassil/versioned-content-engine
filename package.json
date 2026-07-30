@@ -53,6 +53,7 @@
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
+    "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "^2.1.8",
     "dependency-cruiser": "^16.4.2",
     "fast-check": "^3.23.1",
