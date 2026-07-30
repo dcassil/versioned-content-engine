@@ -23,12 +23,21 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "bench": "vitest bench --run bench/materialize.bench.ts",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
     "dependency-cruiser": "^16.4.2",
+    "fast-check": "^3.23.1",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

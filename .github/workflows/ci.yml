@@ -1,0 +1,46 @@
+name: CI
+
+# Recruiter-facing green-badge CI for the pure core: install -> typecheck ->
+# test -> purity gate. Fast (no benchmark; `pnpm bench` is intentionally out of
+# the default run). Coverage thresholds are enforced inside `pnpm coverage`,
+# which supersets `pnpm test`, so we run it here to gate on the >=95% bar too.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # A bare `pnpm install` must succeed in CI: the pnpm.onlyBuiltDependencies
+      # allowlist in package.json permits esbuild (a vitest dependency) to run
+      # its install script without an interactive approval prompt.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Test + coverage (>=95% enforced)
+        run: pnpm coverage
+
+      - name: Purity gate (dependency-cruiser)
+        run: pnpm run depcruise
+
+      - name: Build (ESM + declarations)
+        run: pnpm build

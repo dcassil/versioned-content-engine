@@ -6,5 +6,10 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "exclude": ["test", "**/*.test.ts"]
+  "exclude": [
+    "test",
+    "bench",
+    "**/*.test.ts",
+    "src/__fixtures__/**"
+  ]
 }
