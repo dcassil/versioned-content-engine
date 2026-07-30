@@ -135,6 +135,8 @@ const B = "target-b";
 const X = "col-x";
 const Y = "col-y";
 const Z = "col-z";
+/** Collection W — used only by the same-session LWW fixture (SVER-T-0022). */
+const W = "col-w";
 
 // ---------------------------------------------------------------------------
 // The canonical append-only event log (records + a human-readable op trace)
@@ -276,6 +278,33 @@ const Y_at_v4_B: FixtureRecord = rec({ collectionId: Y, id: "r6", version: 3, in
 const Z_at_v4_B: FixtureRecord = rec({ collectionId: Z, id: "r4", version: 2, index: 1, target: B, deleted: false, value: "Z1" });
 
 // ---------------------------------------------------------------------------
+// Same-session last-write-wins fixture (SVER-T-0022)
+// ---------------------------------------------------------------------------
+//
+// This models TWO edits of the same collection W within ONE unpublished draft
+// session: both records are stamped at the SAME draft version (v1) because no
+// `publish` advanced the clock between them. Append order (w1 then w2) is the
+// write order, so the WINNER-SELECTION last-write-wins tie-break (§1.1) must pick
+// w2 ("W2"), the LAST-appended record at the winning version. Before SVER-T-0022
+// the argmax used strict `<` and would have kept w1 (first-write-wins), which is
+// exactly the same-session defect this task fixes.
+//
+// | id  | col | version | index | target | deleted | value | appended by         |
+// |-----|-----|---------|-------|--------|---------|-------|---------------------|
+// | w1  | W   | 1       | 0     | A      | false   | W1    | create W (draft v1) |
+// | w2  | W   | 1       | 0     | A      | false   | W2    | update W (same v1)  |
+export const SAME_SESSION_LWW_RECORDS: readonly FixtureRecord[] = [
+  rec({ collectionId: W, id: "w1", version: 1, index: 0, target: A, deleted: false, value: "W1" }),
+  rec({ collectionId: W, id: "w2", version: 1, index: 0, target: A, deleted: false, value: "W2" }),
+] as const;
+
+/** State for the same-session LWW row: two same-version edits of W (SVER-T-0022). */
+export const SAME_SESSION_LWW_STATE: FixtureState = stateFrom(SAME_SESSION_LWW_RECORDS);
+
+/** Expected winner at v1: the LAST-appended same-version record w2 ("W2"), dense 0. */
+const W_lww_at_v1: FixtureRecord = rec({ collectionId: W, id: "w2", version: 1, index: 0, target: A, deleted: false, value: "W2" });
+
+// ---------------------------------------------------------------------------
 // The fixture table
 // ---------------------------------------------------------------------------
 
@@ -392,6 +421,18 @@ export const workedExamples: readonly WorkedExample[] = [
       "§1.2 A/Y: winner r5(v3) deleted -> Y ABSENT.",
       "§1.1 step 6: A has zero survivors -> target A OMITTED from snapshot (empty-target => absent key).",
       "B unchanged from v3: Y (dense 0), Z (dense 1) by the §4.1 tie-break.",
+    ],
+  },
+  {
+    name: "same-session LWW: two edits of W at one draft version -> last-appended (W2) wins",
+    version: ver(1),
+    state: SAME_SESSION_LWW_STATE,
+    expectedSnapshot: snapshotFrom([[A, [W_lww_at_v1]]]),
+    edgeCases: ["same-session-two-edits", "same-version-last-write-wins"],
+    traces: [
+      "§1.1 winner-selection tie-break (SVER-T-0022): W group in A = w1(v1,'W1'), w2(v1,'W2'), both version-eligible at v<=1 and TIED at the greatest version 1.",
+      "LWW: append order is w1 then w2, so w2 is the last write and wins the tie -> winner is w2 ('W2'). (The pre-fix strict-`<` argmax would have wrongly kept w1.)",
+      "This is the WINNER-SELECTION tie-break, NOT the §4.1 display-ordering tie-break: there is exactly one surviving collection (W), so reindex just places it at dense 0.",
     ],
   },
 ] as const;

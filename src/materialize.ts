@@ -8,7 +8,9 @@
  *
  *   1. Group that target's records by `collectionId`.
  *   2. Select the winner per group: the record with the greatest `version` among
- *      those with `version <= requested` (argmax over the version-eligible subset).
+ *      those with `version <= requested` (argmax over the version-eligible
+ *      subset). Ties at the greatest version resolve LAST-WRITE-WINS — the
+ *      last-appended record wins (SVER-T-0022, §1.1).
  *   3. No version-eligible record  => the collection is absent (created later).
  *   4. Winner is a tombstone (`deleted === true`) => absent at THIS version only.
  *   5. Otherwise the live winner survives.
@@ -43,11 +45,6 @@ function versionLte(a: Version, b: Version): boolean {
   return (a as unknown as number) <= (b as unknown as number);
 }
 
-/** Strict-less-than on the opaque `Version` (underlying number). `a < b`. */
-function versionLt(a: Version, b: Version): boolean {
-  return (a as unknown as number) < (b as unknown as number);
-}
-
 /**
  * Compute the {@link ContentSnapshot} visible at `requested`
  * (`docs/corrected-semantics.md` §1.2). Pure: input untouched; output is a fresh
@@ -77,8 +74,13 @@ export function materialize<TMap extends ContentTypeMap = AnyContentTypeMap>(
       let winner: ContentRecord<TMap> | null = null;
       for (const c of group) {
         if (versionLte(c.version, requested)) {
-          // argmax(version <= requested)
-          if (winner === null || versionLt(winner.version, c.version)) {
+          // argmax(version <= requested) with LAST-WRITE-WINS same-version
+          // tie-break (SVER-T-0022, §1.1): the group preserves append order, so
+          // using `<=` (not `<`) lets a candidate tying the incumbent's version
+          // replace it — the last-appended record at the winning version wins.
+          // This is the WINNER-SELECTION tie-break, distinct from the
+          // display-ordering tie-break applied later by `reindex` (§4).
+          if (winner === null || versionLte(winner.version, c.version)) {
             winner = c;
           }
         }
