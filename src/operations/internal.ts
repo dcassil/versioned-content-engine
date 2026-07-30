@@ -56,11 +56,6 @@ export function draftVersionFor(clock: VersionClock): Version {
   return nextVersion(clock.live());
 }
 
-/** Strict-less-than on the opaque `Version` (underlying number). `a < b`. */
-function versionLt(a: Version, b: Version): boolean {
-  return (a as unknown as number) < (b as unknown as number);
-}
-
 /** Total order on the opaque `Version` (underlying number). `a <= b`. */
 function versionLte(a: Version, b: Version): boolean {
   return (a as unknown as number) <= (b as unknown as number);
@@ -97,6 +92,17 @@ export function appendRecord<TMap extends ContentTypeMap = AnyContentTypeMap>(
  * greatest `version <= requested` for that collection, or `null` if the
  * collection has no version-eligible record in the target.
  *
+ * WINNER-SELECTION TIE-BREAK — LAST-WRITE-WINS (SVER-T-0022, §1.1/§1.2): when two
+ * or more version-eligible records for the same collection share the same
+ * (greatest) version — as happens for two same-session edits at one draft
+ * version — the record appended LAST wins. Records are appended in order, so the
+ * later position in the target array is the later write; we implement this
+ * explicitly with `versionLte` (a same-version candidate replaces the incumbent,
+ * so the last one scanned — the last appended — wins). This is deliberately
+ * SEPARATE from the display-ordering tie-break in `src/reindex.ts` (`index` asc,
+ * then `collectionId` asc), which orders distinct surviving collections for
+ * layout; do not conflate the two.
+ *
  * Pure: scans the target's log without mutating anything. Used by operations
  * that must read the collection's current record (e.g. `updateContent` copies
  * its `target`/`index`/`type` to keep the new record well-typed and placed).
@@ -110,7 +116,9 @@ export function winnerFor<TMap extends ContentTypeMap = AnyContentTypeMap>(
   let winner: ContentRecord<TMap> | null = null;
   for (const c of state.get(target) ?? []) {
     if (c.collectionId === collectionId && versionLte(c.version, version)) {
-      if (winner === null || versionLt(winner.version, c.version)) {
+      // `<=` (not `<`): a candidate whose version ties the incumbent replaces it,
+      // so the LAST-appended record at the winning version wins (LWW, §1.1).
+      if (winner === null || versionLte(winner.version, c.version)) {
         winner = c;
       }
     }
@@ -127,6 +135,13 @@ export function winnerFor<TMap extends ContentTypeMap = AnyContentTypeMap>(
  * `updateContent` uses this so a caller need only supply the `collectionId`
  * (not its current target), matching the source's `updateVersionedContent`,
  * which located the record by id/collection rather than by target.
+ *
+ * WINNER-SELECTION TIE-BREAK — LAST-WRITE-WINS (SVER-T-0022, §1.1/§1.2): as in
+ * {@link winnerFor}, records tying at the greatest version resolve to the
+ * last-appended one. Targets are visited in the map's insertion order and each
+ * target's log in append order, and a collection's same-version draft records
+ * live together, so `versionLte` yields the last write. Kept separate from the
+ * `src/reindex.ts` display-ordering tie-break.
  */
 export function winnerForAcrossTargets<
   TMap extends ContentTypeMap = AnyContentTypeMap,
@@ -139,7 +154,8 @@ export function winnerForAcrossTargets<
   for (const records of state.values()) {
     for (const c of records) {
       if (c.collectionId === collectionId && versionLte(c.version, version)) {
-        if (winner === null || versionLt(winner.version, c.version)) {
+        // `<=` (not `<`): last-appended record at the winning version wins (LWW).
+        if (winner === null || versionLte(winner.version, c.version)) {
           winner = c;
         }
       }

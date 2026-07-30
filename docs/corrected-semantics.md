@@ -75,6 +75,14 @@ target independently:
 1. **Group** that target's records by `collectionId`.
 2. For each group, **select the winner**: the record with the greatest `version` among
    those with `version <= requested` (`argmax(version)` over the version-eligible subset).
+   **Same-version tie-break — LAST-WRITE-WINS (SVER-T-0022):** when two or more
+   version-eligible records for the collection share that greatest `version` — which
+   happens for two edits made in one unpublished draft session, both stamped at the same
+   draft version — the **last-appended** record wins. Append order within a target's log is
+   the write order, so the argmax uses `<=` (not strict `<`): a candidate tying the
+   incumbent's version replaces it, leaving the last write as the winner. This is the
+   **winner-selection** tie-break and is kept strictly separate from the §4.1
+   **display-ordering** tie-break (`index` asc, then `collectionId` asc).
 3. If a group has **no** version-eligible record, the collection is **absent** at this
    version (it was created later).
 4. If the winner's **`deleted === true`** (it is a tombstone), the collection is **absent
@@ -116,8 +124,8 @@ function materialize(state, requested):
             for c in group:
                 if versionLte(c.version, requested):           // version-eligible only
                     if winner == null
-                       or (winner != null and lt(winner.version, c.version)):
-                        winner = c                             // argmax(version <= requested)
+                       or (winner != null and lte(winner.version, c.version)):
+                        winner = c              // argmax(version <= requested), LAST-WRITE-WINS on ties
             if winner == null:
                 continue                              // (3) never existed at `requested` -> absent
             if winner.deleted == true:
@@ -130,18 +138,25 @@ function materialize(state, requested):
 
     return freeze(result)                             // ReadonlyMap<TargetId, readonly ContentRecord[]>
 
-// helper: strict-less-than on opaque Version
-function lt(a: Version, b: Version): boolean
-    return (a as number) < (b as number)
+// helper: less-than-or-equal on opaque Version (LWW argmax uses <= so the
+// last-appended same-version record replaces the incumbent — SVER-T-0022)
+function lte(a: Version, b: Version): boolean
+    return (a as number) <= (b as number)
 ```
 
 **Complexity / purity.** Single pass to group, single pass to pick winners, one sort in
 `reindex` — no O(n²), no mutation of `state` or any record it contains (ADR SVER-A-0001
 "Negative": hot path, must stay single-pass and pure).
 
-**Tie in winner selection is impossible:** the append-only invariant means at most one
-record per `collectionId` exists at any given `version`, so `argmax(version)` is unique.
-Ties requiring the §4 tie-break arise only among *distinct collections sharing an `index`*.
+**Winner-selection ties are possible and resolved by LWW (corrected, SVER-T-0022).** The
+earlier claim that "at most one record per `collectionId` exists at any given `version`" is
+**false** across a single unpublished draft session: because every edit writes at
+`nextVersion(clock.live())` and `publish` is what advances the clock, *n* edits of one
+collection with no intervening publish produce *n* records all sharing the same draft
+`version`. The winner-selection `argmax` therefore breaks same-`version` ties by **append
+order (last-write-wins)** — see §1.1 step 2. This is distinct from the §4.1
+display-ordering tie-break, which orders *distinct collections sharing an `index`* and only
+ever runs on the already-selected winners.
 
 ---
 
@@ -202,9 +217,10 @@ SVER-T-0005 must encode.
 // delete<TMap>(state, target, collectionId, clock, ids): ContentState<TMap>
 function delete(state, target, collectionId, clock, ids):
     draft = nextVersion(clock.live())                 // edits write to the draft version
-    current = winnerFor(state, target, collectionId, clock.live())
+    current = winnerFor(state, target, collectionId, draft)   // resolve at DRAFT (SVER-T-0022)
     // `current` gives us a valid (type,payload) to satisfy the record's union type;
-    // if the collection is already absent/tombstoned at live, delete is a no-op:
+    // resolving at `draft` (not `live`) lets delete see same-session unpublished edits;
+    // if the collection is already absent/tombstoned at draft, delete is a no-op:
     if current == null or current.deleted == true:
         return state
     tombstone = {
@@ -231,7 +247,7 @@ function winnerFor(state, target, collectionId, version):
     winner = null
     for c in (state.get(target) ?? []):
         if c.collectionId == collectionId and versionLte(c.version, version):
-            if winner == null or lt(winner.version, c.version):
+            if winner == null or lte(winner.version, c.version):   // LWW on ties (SVER-T-0022)
                 winner = c
     return winner
 ```
@@ -276,9 +292,9 @@ corrected* tombstone rule and thus the *same* Defect-1 fix, not the old regressi
 // move<TMap>(state, collectionId, source, dest, index, clock, ids): ContentState<TMap>
 function move(state, collectionId, source, dest, index, clock, ids):
     draft = nextVersion(clock.live())
-    winner = winnerFor(state, source, collectionId, clock.live())
+    winner = winnerFor(state, source, collectionId, draft)   // resolve at DRAFT (SVER-T-0022)
     if winner == null or winner.deleted == true:
-        return state                                  // nothing live to move
+        return state                                  // nothing to move (at draft)
 
     if source == dest:
         // ---- in-target reorder: one new live record at the new index ----
@@ -293,10 +309,12 @@ function move(state, collectionId, source, dest, index, clock, ids):
     return appendRecord(s1, dest, live)               // reindex of both targets happens on read (§4)
 ```
 
-Determinism note: both appends carry the **same** `draft` version; §1's argmax is still
-unique per `(target, collectionId)` because they live in different targets (or, for
-in-target reorder, replace the same collection's earlier winner at a strictly higher
-version).
+Determinism note: both appends carry the **same** `draft` version. For a cross-target move
+they live in different targets, so each target's argmax is unambiguous. For an in-target
+reorder (or any same-session re-edit) the new record can share the `draft` version with the
+collection's earlier record in the same target; §1's argmax then resolves the tie by
+**last-write-wins** (§1.1 step 2, SVER-T-0022) — append order makes the just-appended record
+the winner — so the result is still fully deterministic.
 
 ---
 
@@ -379,18 +397,25 @@ Every operation is a **pure function**: inputs are `(state, args..., clock, ids)
 a new `ContentState` (writes) or a `ContentSnapshot` (reads). None mutate inputs; none read
 `Date.now`/`Math.random`/global state (NFR-001, NFR-002, REQ-007).
 
-| Operation | Signature (over SVER-T-0002 types) | Appends | Version written | Purity / notes | Fixes |
-|---|---|---|---|---|---|
-| `create` | `(state, target, type, payload, index, clock, ids) → ContentState` | 1 live record, fresh `ids.newCollectionId()` + `ids.newId()`, `deleted:false` | draft = `nextVersion(clock.live())` | new state; no mutation | — |
-| `update` | `(state, target, collectionId, payload, clock, ids) → ContentState` | 1 live record, same `collectionId`, fresh `id` | draft | prior record untouched | — |
-| `move` (in-target) | `(state, collectionId, target, target, index, clock, ids) → ContentState` | 1 live record at new `index` | draft | §3.1 | — |
-| `move` (cross-target) | `(state, collectionId, source, dest, index, clock, ids) → ContentState` | tombstone in `source` + live in `dest` | draft (both) | §3.2; mirrors `content.js` `set()` | Defect 1 (source tombstone is version-scoped) |
-| `delete` | `(state, target, collectionId, clock, ids) → ContentState` | 1 tombstone (`deleted:true`) | draft | never removes prior records | Defect 1 |
-| `publish` | `(clock) → VersionClock` | none | advances via `clock.advance()` | §6.3; no record append | — |
-| `materialize` | `(state, version) → ContentSnapshot` | none (read) | reads at `version` | §1; single-pass, immutable reindex | Defect 1 & 2 |
+| Operation | Signature (over SVER-T-0002 types) | Appends | Version written | Winner resolved at | Purity / notes | Fixes |
+|---|---|---|---|---|---|---|
+| `create` | `(state, target, type, payload, index, clock, ids) → ContentState` | 1 live record, fresh `ids.newCollectionId()` + `ids.newId()`, `deleted:false` | draft = `nextVersion(clock.live())` | n/a (mints a new collection) | new state; no mutation | — |
+| `update` | `(state, target, collectionId, payload, clock, ids) → ContentState` | 1 live record, same `collectionId`, fresh `id` | draft | **draft** `nextVersion(clock.live())` (SVER-T-0022) | prior record untouched; sees same-session edits | Defect 3 |
+| `move` (in-target) | `(state, collectionId, target, target, index, clock, ids) → ContentState` | 1 live record at new `index` | draft | **draft** (SVER-T-0022) | §3.1 | Defect 3 |
+| `move` (cross-target) | `(state, collectionId, source, dest, index, clock, ids) → ContentState` | tombstone in `source` + live in `dest` | draft (both) | **draft** (SVER-T-0022) | §3.2; mirrors `content.js` `set()` | Defect 1 (source tombstone is version-scoped) & Defect 3 |
+| `delete` | `(state, target, collectionId, clock, ids) → ContentState` | 1 tombstone (`deleted:true`) | draft | **draft** (SVER-T-0022) | never removes prior records | Defect 1 & Defect 3 |
+| `publish` | `(clock) → VersionClock` | none | advances via `clock.advance()` | n/a | §6.3; no record append | — |
+| `materialize` | `(state, version) → ContentSnapshot` | none (read) | reads at `version` | argmax at `version`, LWW on same-version ties (§1.1, SVER-T-0022) | §1; single-pass, immutable reindex | Defect 1, 2 & 3 |
 
-`winnerFor`, `appendRecord`, `reindex`, `versionLte`, `nextVersion`, `lt`,
-`canonicalCompare` are the shared pure helpers used above.
+**Winner-resolution version (SVER-T-0022):** `update`/`move`/`delete` resolve the record
+they edit at the **draft** version `nextVersion(clock.live())`, *not* `live`. Resolving at
+`live` was the same-session no-op defect (Defect 3): a `create` earlier in an unpublished
+draft session was stamped at draft but invisible to a subsequent `update`/`move`/`delete`
+that looked at `live`. Only `publish`/`getLive` legitimately read at `clock.live()`.
+
+`winnerFor`, `appendRecord`, `reindex`, `versionLte`, `nextVersion`, `lte`,
+`canonicalCompare` are the shared pure helpers used above (the winner-selection argmax uses
+`lte` for the LWW tie-break; `create`'s draft stamp uses `nextVersion`).
 
 ---
 
@@ -453,6 +478,7 @@ immutable value threaded by the caller, exactly `IntegerVersionClock` in `src/st
 | §4.1 single canonical order (`index` asc, `collectionId` tie-break) | Defect 2 — client/server tie-break divergence (baseline §6.1); supersedes both variants |
 | §4.2/§4.3 immutable `reindex` (copy-sort + new records) | Defect 2 — in-place mutation hazard (baseline §6.2) |
 | §6.2 injected `IdStrategy`; §6.3 injected `VersionClock` | Non-injectable `Math.random()+Date.now()` ids + global version counter (baseline §7) |
+| §1.1 step 2 same-version last-write-wins tie-break; §5 winner resolved at **draft** for `update`/`move`/`delete` | **Defect 3 (SVER-T-0022)** — draft-session no-op: write ops resolved the winner at `live` instead of `draft`, so a create-then-{update,move,delete} of one collection within a single unpublished draft session was silently lost; and the argmax had no defined tie-break for same-version records produced by same-session edits |
 
 ---
 

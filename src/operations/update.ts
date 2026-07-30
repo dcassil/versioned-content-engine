@@ -67,10 +67,11 @@ export type UpdateContentArgs<TMap extends ContentTypeMap = AnyContentTypeMap> =
  * a new {@link ContentState} (`docs/corrected-semantics.md` §5 `update`,
  * REQ-003).
  *
- * Locates the collection's current winner (across targets) at the live version,
- * inherits its `target`/`index`, mints a fresh `id`, stamps the draft version,
- * and appends the new record. Prior records are preserved (append-only). If the
- * collection has no live winner, returns `state` unchanged by reference.
+ * Locates the collection's current winner (across targets) at the DRAFT version
+ * (SVER-T-0022 — so same-session unpublished edits are visible), inherits its
+ * `target`/`index`, mints a fresh `id`, stamps the draft version, and appends the
+ * new record. Prior records are preserved (append-only). If the collection has no
+ * winner at draft, returns `state` unchanged by reference.
  *
  * @returns a new frozen `ContentState` with the update appended, or the input
  *   `state` (same reference) when there is nothing live to update.
@@ -82,15 +83,16 @@ export function updateContent<
   args: UpdateContentArgs<TMap>,
   deps: OperationDeps,
 ): ContentState<TMap> {
-  const live = deps.clock.live();
-  const current = winnerForAcrossTargets(state, args.collectionId, live);
+  // SVER-T-0022: resolve the current winner at the DRAFT version, not `live`, so
+  // a same-session unpublished edit (e.g. a create earlier in this draft) is
+  // visible here. Winner lookup and the new stamp share this draft version.
+  const version = draftVersionFor(deps.clock);
+  const current = winnerForAcrossTargets(state, args.collectionId, version);
 
-  // Nothing live to update (absent or currently tombstoned): no-op, same state.
+  // Nothing to update (absent or currently tombstoned at draft): no-op, same state.
   if (current === null || current.deleted) {
     return state;
   }
-
-  const version = draftVersionFor(deps.clock);
   const id: Id = deps.idStrategy.newId();
 
   const record = Object.freeze({

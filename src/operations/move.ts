@@ -84,15 +84,16 @@ export function moveContent<
   args: MoveContentArgs,
   deps: OperationDeps,
 ): ContentState<TMap> {
-  const live = deps.clock.live();
-  const winner = winnerFor(state, args.source, args.collectionId, live);
+  // SVER-T-0022: resolve the source winner at the DRAFT version, not `live`, so a
+  // same-session unpublished edit (e.g. a create earlier in this draft) can be
+  // moved. Winner lookup and the new stamp share this draft version.
+  const version = draftVersionFor(deps.clock);
+  const winner = winnerFor(state, args.source, args.collectionId, version);
 
-  // Absent or already tombstoned in the source: nothing live to move.
+  // Absent or already tombstoned in the source (at draft): nothing to move.
   if (winner === null || winner.deleted) {
     return state;
   }
-
-  const version = draftVersionFor(deps.clock);
 
   if (args.source === args.dest) {
     // ---- in-target reorder: one new live record at the new index (§3.1) ----

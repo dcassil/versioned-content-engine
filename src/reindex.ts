@@ -11,6 +11,12 @@
  * This helper is exported for reuse by the operation tasks (SVER-T-0008..0010),
  * which reindex affected targets after appending records.
  *
+ * SCOPE: this is the DISPLAY-ORDERING tie-break — it orders the distinct
+ * surviving collections (one winner each) for layout. It is deliberately SEPARATE
+ * from the WINNER-SELECTION last-write-wins tie-break in `materialize`/`internal.ts`
+ * (SVER-T-0022, §1.1), which decides WHICH record wins when several share a
+ * version. Do not conflate the two; reindex only ever sees post-selection winners.
+ *
  * PURITY (NFR-001): imports only the type surface. No React, fs/path, or runtime
  * deps; no `Math.random`/`Date.now`/global state.
  */

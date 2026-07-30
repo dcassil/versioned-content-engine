@@ -76,15 +76,16 @@ export function deleteContent<
   args: DeleteContentArgs,
   deps: OperationDeps,
 ): ContentState<TMap> {
-  const live = deps.clock.live();
-  const current = winnerFor(state, args.target, args.collectionId, live);
+  // SVER-T-0022: resolve the current winner at the DRAFT version, not `live`, so a
+  // same-session unpublished edit (e.g. a create earlier in this draft) can be
+  // deleted. Winner lookup and the new tombstone share this draft version.
+  const version = draftVersionFor(deps.clock);
+  const current = winnerFor(state, args.target, args.collectionId, version);
 
-  // Absent or already tombstoned in this target: no-op, same state reference.
+  // Absent or already tombstoned in this target (at draft): no-op, same state.
   if (current === null || current.deleted) {
     return state;
   }
-
-  const version = draftVersionFor(deps.clock);
   const id: Id = deps.idStrategy.newId();
 
   const tombstone = Object.freeze({
