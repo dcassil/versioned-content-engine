@@ -27,11 +27,15 @@ export { reindex, canonicalCompare } from "./reindex.js";
 
 export { createContent } from "./operations/create.js";
 export { updateContent } from "./operations/update.js";
+export { moveContent } from "./operations/move.js";
+export { deleteContent } from "./operations/delete.js";
 export type {
   OperationDeps,
   CreateContentArgs,
 } from "./operations/create.js";
 export type { UpdateContentArgs } from "./operations/update.js";
+export type { MoveContentArgs } from "./operations/move.js";
+export type { DeleteContentArgs } from "./operations/delete.js";
 
 export {
   DefaultIdStrategy,
