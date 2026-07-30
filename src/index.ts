@@ -13,6 +13,8 @@ export type {
   ContentCollectionId,
   TargetId,
   Version,
+  ContentTypeMap,
+  AnyContentTypeMap,
   ContentRecord,
   ContentState,
   ContentSnapshot,
