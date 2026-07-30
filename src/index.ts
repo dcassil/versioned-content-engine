@@ -29,6 +29,14 @@ export { createContent } from "./operations/create.js";
 export { updateContent } from "./operations/update.js";
 export { moveContent } from "./operations/move.js";
 export { deleteContent } from "./operations/delete.js";
+export {
+  publish,
+  getLive,
+  getDraft,
+  goBack,
+  goForward,
+} from "./operations/publish.js";
+export type { PublishResult } from "./operations/publish.js";
 export type {
   OperationDeps,
   CreateContentArgs,
