@@ -45,6 +45,44 @@ function versionLte(a: Version, b: Version): boolean {
   return (a as unknown as number) <= (b as unknown as number);
 }
 
+/** Group a target's records by `collectionId`, preserving append order. */
+function groupByCollection<TMap extends ContentTypeMap>(
+  records: readonly ContentRecord<TMap>[],
+): Map<ContentCollectionId, ContentRecord<TMap>[]> {
+  const groups = new Map<ContentCollectionId, ContentRecord<TMap>[]>();
+  for (const c of records) {
+    const bucket = groups.get(c.collectionId);
+    if (bucket === undefined) {
+      groups.set(c.collectionId, [c]);
+    } else {
+      bucket.push(c);
+    }
+  }
+  return groups;
+}
+
+/**
+ * Select the winner for one collection group: argmax(version <= requested) with
+ * LAST-WRITE-WINS tie-break (SVER-T-0022, §1.1). The group preserves append
+ * order, so `<=` lets a candidate tying the incumbent's version replace it — the
+ * last-appended record at the winning version wins. This is the WINNER-SELECTION
+ * tie-break, distinct from the display-ordering tie-break `reindex` applies (§4).
+ * Returns `null` when the collection has no version-eligible record.
+ */
+function selectWinner<TMap extends ContentTypeMap>(
+  group: readonly ContentRecord<TMap>[],
+  requested: Version,
+): ContentRecord<TMap> | null {
+  let winner: ContentRecord<TMap> | null = null;
+  for (const c of group) {
+    const eligible = versionLte(c.version, requested);
+    if (eligible && (winner === null || versionLte(winner.version, c.version))) {
+      winner = c;
+    }
+  }
+  return winner;
+}
+
 /**
  * Compute the {@link ContentSnapshot} visible at `requested`
  * (`docs/corrected-semantics.md` §1.2). Pure: input untouched; output is a fresh
@@ -58,33 +96,12 @@ export function materialize<TMap extends ContentTypeMap = AnyContentTypeMap>(
 
   for (const [targetId, records] of state) {
     // ---- group by collectionId ----
-    const groups = new Map<ContentCollectionId, ContentRecord<TMap>[]>();
-    for (const c of records) {
-      const bucket = groups.get(c.collectionId);
-      if (bucket === undefined) {
-        groups.set(c.collectionId, [c]);
-      } else {
-        bucket.push(c);
-      }
-    }
+    const groups = groupByCollection(records);
 
     // ---- select winner per collection; apply version-scoped tombstone ----
     const survivors: ContentRecord<TMap>[] = [];
     for (const group of groups.values()) {
-      let winner: ContentRecord<TMap> | null = null;
-      for (const c of group) {
-        if (versionLte(c.version, requested)) {
-          // argmax(version <= requested) with LAST-WRITE-WINS same-version
-          // tie-break (SVER-T-0022, §1.1): the group preserves append order, so
-          // using `<=` (not `<`) lets a candidate tying the incumbent's version
-          // replace it — the last-appended record at the winning version wins.
-          // This is the WINNER-SELECTION tie-break, distinct from the
-          // display-ordering tie-break applied later by `reindex` (§4).
-          if (winner === null || versionLte(winner.version, c.version)) {
-            winner = c;
-          }
-        }
-      }
+      const winner = selectWinner(group, requested);
       if (winner === null) {
         continue; // (3) never existed at `requested` -> absent
       }
@@ -100,5 +117,5 @@ export function materialize<TMap extends ContentTypeMap = AnyContentTypeMap>(
     }
   }
 
-  return Object.freeze(result) as ContentSnapshot<TMap>;
+  return Object.freeze(result);
 }

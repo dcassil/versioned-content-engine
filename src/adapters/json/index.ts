@@ -10,9 +10,10 @@
  * corrupt the store (replacing the source's unguarded `_save()`).
  *
  * ## fs confinement (SVER-I-0003 REQ-003)
- * Node `fs`/`path` are imported ONLY in this module. The dependency-cruiser rule
- * `fs-confined-to-json-adapter` fails the build if any `src/**` module outside
- * `src/adapters/json/` imports them; the core never touches the filesystem.
+ * Node `fs`/`path` are imported ONLY within `src/adapters/json/` (here via the
+ * `./fs-io.js` helpers). The dependency-cruiser rule `fs-confined-to-json-adapter`
+ * fails the build if any `src/**` module outside `src/adapters/json/` imports
+ * them; the core never touches the filesystem.
  *
  * ## Append-only write path (ADR SVER-A-0001)
  * `append` is the ONLY content write path. It folds new records into a fresh
@@ -26,28 +27,26 @@
  * caches it; the cached reference is what every `load()` returns until the next
  * write, and a write REPLACES (never mutates) that reference. A snapshot captured
  * before an `append` therefore keeps observing the older log (no aliasing).
- *
- * ## Serialization of branded ids / Version (NFR-004)
- * `Id`, `ContentCollectionId`, `TargetId`, and `Version` are branded PRIMITIVES
- * (strings / numbers) at runtime, so JSON round-trips their values faithfully.
- * The (de)serializers below re-attach the brands with explicit, typed casts —
- * the only place casting the raw JSON back to the opaque types is permitted — so
- * the reloaded state is byte-for-byte identical in observable behavior.
  */
-
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
 
 import type {
   ContentRecord,
   ContentState,
   ContentTypeMap,
-  TargetId,
-} from "../../types.js";
-import type { VersionClock } from "../../strategies.js";
-import { createDefaultVersionClock } from "../../strategies.js";
-import { appendRecord } from "../../operations/internal.js";
+  VersionClock,
+} from "#core";
+import { appendRecord } from "#core/internal";
+
 import type { StorageAdapter } from "../types.js";
+import {
+  SCHEMA_VERSION,
+  deserializeClock,
+  deserializeState,
+  readFile,
+  serializeState,
+  writeFileAtomic,
+  type PersistedFile,
+} from "./fs-io.js";
 
 export type { StorageAdapter } from "../types.js";
 
@@ -56,118 +55,6 @@ export interface JsonAdapterOptions {
   /** Absolute path to the JSON file backing the append-only log + clock. */
   readonly filePath: string;
 }
-
-// ---------------------------------------------------------------------------
-// On-disk schema
-// ---------------------------------------------------------------------------
-
-/**
- * The persisted shape. The append-only state is stored as an array of
- * `[targetKey, records]` entries (a plain, JSON-friendly encoding of the
- * `ReadonlyMap`), and the clock as its single live-version integer. `version`
- * documents the on-disk format so a future migration is unambiguous.
- */
-interface PersistedFile {
-  /** On-disk schema version (bump on any breaking format change). */
-  readonly version: 1;
-  /** The append-only log, encoded as ordered map entries. */
-  readonly state: ReadonlyArray<readonly [string, readonly unknown[]]>;
-  /** The persisted version clock's live version. */
-  readonly clock: number;
-}
-
-/** The currently supported on-disk schema version. */
-const SCHEMA_VERSION = 1 as const;
-
-// ---------------------------------------------------------------------------
-// (De)serialization — brands are re-attached here, the only permitted place.
-// ---------------------------------------------------------------------------
-
-/**
- * Encode a live {@link ContentState} into the JSON-friendly persisted form.
- * Records are plain readonly objects, so they serialize directly; only the
- * `ReadonlyMap` needs flattening into entries.
- */
-function serializeState<TMap extends ContentTypeMap>(
-  state: ContentState<TMap>,
-): ReadonlyArray<readonly [string, readonly ContentRecord<TMap>[]]> {
-  return [...state.entries()].map(
-    ([target, records]) => [target as unknown as string, records] as const,
-  );
-}
-
-/**
- * Rebuild a DEEPLY-frozen {@link ContentState} from the persisted entries.
- * Each record is re-frozen and each target array is re-frozen, so the reloaded
- * state cannot be mutated in place (NFR-002). Branded ids/`Version` survive the
- * round-trip unchanged (they are the same primitive values); the cast only
- * re-attaches the compile-time brand to the parsed data.
- */
-function deserializeState<TMap extends ContentTypeMap>(
-  entries: ReadonlyArray<readonly [string, readonly unknown[]]>,
-): ContentState<TMap> {
-  const map = new Map<TargetId, readonly ContentRecord<TMap>[]>();
-  for (const [targetKey, rawRecords] of entries) {
-    const records = rawRecords.map((r) =>
-      Object.freeze(r as ContentRecord<TMap>),
-    );
-    map.set(targetKey as unknown as TargetId, Object.freeze(records));
-  }
-  return Object.freeze(map) as ContentState<TMap>;
-}
-
-/** Reconstruct an immutable-value {@link VersionClock} from its live integer. */
-function deserializeClock(live: number): VersionClock {
-  return createDefaultVersionClock(live);
-}
-
-// ---------------------------------------------------------------------------
-// Atomic file I/O (confined to this module)
-// ---------------------------------------------------------------------------
-
-/**
- * Read + parse the backing file. A missing file (first load) yields an empty,
- * frozen state and a fresh clock at version 0 — never an error (graceful
- * first-load, matching the source's implicit empty-`db` start).
- */
-function readFile(filePath: string): {
-  state: ReadonlyArray<readonly [string, readonly unknown[]]>;
-  clock: number;
-} {
-  let raw: string;
-  try {
-    raw = readFileSync(filePath, "utf8");
-  } catch (error: unknown) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { readonly code?: unknown }).code === "ENOENT"
-    ) {
-      return { state: [], clock: 0 };
-    }
-    throw error;
-  }
-  const parsed = JSON.parse(raw) as PersistedFile;
-  return { state: parsed.state, clock: parsed.clock };
-}
-
-/**
- * Persist the whole store ATOMICALLY: write to a sibling temp file, then rename
- * it over the target. `rename` is atomic on POSIX, so a reader (or a crash) sees
- * either the old file or the fully-written new file — never a partial write.
- * This replaces the source's unguarded `_save()` (SVER-T-0014 acceptance).
- */
-function writeFileAtomic(filePath: string, contents: PersistedFile): void {
-  mkdirSync(dirname(filePath), { recursive: true });
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  writeFileSync(tempPath, JSON.stringify(contents), "utf8");
-  renameSync(tempPath, filePath);
-}
-
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a JSON/file-backed {@link StorageAdapter} (SVER-I-0003 REQ-003).
@@ -216,19 +103,23 @@ export function createJsonAdapter<
   /** Persist the current cached state + clock atomically. */
   function persist(): void {
     const { state, clock } = ensureLoaded();
-    writeFileAtomic(filePath, {
+    const contents: PersistedFile = {
       version: SCHEMA_VERSION,
       state: serializeState(state),
-      clock: clock.live() as unknown as number,
-    });
+      clock: clock.live(),
+    };
+    writeFileAtomic(filePath, contents);
   }
 
+  // The adapter contract tolerates synchronous OR Promise returns; the file I/O
+  // here is synchronous (`readFileSync`/atomic `renameSync`), so these methods
+  // return plain values. Callers `await` uniformly, so behavior is unchanged.
   return {
-    async load(): Promise<ContentState<TMap>> {
+    load(): ContentState<TMap> {
       return ensureLoaded().state;
     },
 
-    async append(records: readonly ContentRecord<TMap>[]): Promise<void> {
+    append(records: readonly ContentRecord<TMap>[]): void {
       const { state } = ensureLoaded();
       let next = state;
       for (const record of records) {
@@ -238,11 +129,11 @@ export function createJsonAdapter<
       persist();
     },
 
-    async getClock(): Promise<VersionClock> {
+    getClock(): VersionClock {
       return ensureLoaded().clock;
     },
 
-    async setClock(nextClock: VersionClock): Promise<void> {
+    setClock(nextClock: VersionClock): void {
       // Read state (if not cached) before replacing the clock, so `persist`
       // writes the full, consistent store.
       ensureLoaded();

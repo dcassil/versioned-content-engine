@@ -40,7 +40,7 @@ import type {
   ContentTypeMap,
   Id,
   TargetId,
-} from "./../types.js";
+} from "../types.js";
 import { appendRecord, draftVersionFor, winnerFor } from "./internal.js";
 import type { OperationDeps } from "./create.js";
 

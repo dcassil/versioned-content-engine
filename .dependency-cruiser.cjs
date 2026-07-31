@@ -73,10 +73,51 @@ module.exports = {
       },
     },
     {
+      name: "no-sibling-adapter-imports",
+      comment:
+        "An adapter (memory/json/sql/react) must NOT import a SIBLING adapter. Each adapter depends on the pure CORE only (via #core / #core/internal) plus the shared adapter contract (src/adapters/types.ts). This mirrors the eslint-plugin-boundaries `element-types` rule and preserves the leaf-core invariant + zero-dependency core (SVER-I-0003 NFR-001). The zero-config React default lives INSIDE the react adapter (src/adapters/react/default-adapter.ts) precisely so react need not import the memory adapter.",
+      severity: "error",
+      from: {
+        path: "^src/adapters/(memory|json|sql|react)/",
+      },
+      to: {
+        path: "^src/adapters/(memory|json|sql|react)/",
+        // A module importing another file WITHIN ITS OWN adapter dir is fine;
+        // only CROSS-adapter edges are forbidden. `pathNot` with the captured
+        // group keeps same-adapter internal imports (e.g. react/index.ts ->
+        // react/use-versioned-content.ts) allowed.
+        pathNot: [
+          "^src/adapters/$1/",
+          // The shared contract is not itself under a per-adapter dir, so it is
+          // never matched here; adapters may import it freely.
+        ],
+      },
+    },
+    {
+      name: "adapters-import-core-contract-only",
+      comment:
+        "Within src/adapters/, a per-adapter module may import ONLY: its own dir, the shared contract (src/adapters/types.ts), or the core (any src/ module outside src/adapters/, reached via #core / #core/internal). Nothing else under src/adapters/ is a legal target. Reinforces adapter isolation.",
+      severity: "error",
+      from: { path: "^src/adapters/(memory|json|sql|react)/" },
+      to: {
+        path: "^src/adapters/",
+        pathNot: ["^src/adapters/$1/", "^src/adapters/types\\.ts$"],
+      },
+    },
+    {
       name: "no-orphans",
-      comment: "Modules without any incoming or outgoing dependencies are suspicious.",
-      severity: "warn",
-      from: { orphan: true, pathNot: ["\\.d\\.ts$", "(^|/)index\\.ts$"] },
+      comment:
+        "Modules without any incoming or outgoing dependencies are suspicious. Subpath entry files (index.ts) and type-declaration files are legitimately orphan-like from src's internal graph and are exempt.",
+      severity: "error",
+      from: {
+        orphan: true,
+        pathNot: [
+          "\\.d\\.ts$",
+          "(^|/)index\\.ts$",
+          "^src/adapters/sql/",
+          "^src/__fixtures__/",
+        ],
+      },
       to: {},
     },
     {

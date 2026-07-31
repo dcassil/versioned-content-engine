@@ -60,7 +60,7 @@ import type {
   TargetId,
   Version,
 } from "../../src/types.js";
-import type { VersionClock } from "../../src/index.js";
+import type { VersionClock } from "../../src";
 import type { StorageAdapter } from "../../src/adapters/types.js";
 import {
   createContent,
@@ -71,8 +71,8 @@ import {
   materialize,
   createSequenceIdStrategy,
   createDefaultVersionClock,
-} from "../../src/index.js";
-import type { OperationDeps } from "../../src/index.js";
+} from "../../src";
+import type { OperationDeps } from "../../src";
 
 // ---------------------------------------------------------------------------
 // Canonical fixture content map + branded helpers (shared by every adapter)
@@ -154,7 +154,7 @@ function deepFreezeState(state: ParityState): ParityState {
  */
 function normalizeSnapshot(
   snapshot: ParitySnapshot,
-): ReadonlyArray<readonly [string, readonly ParityRecord[]]> {
+): readonly (readonly [string, readonly ParityRecord[]])[] {
   return [...snapshot.entries()]
     .map(
       ([t, records]) =>

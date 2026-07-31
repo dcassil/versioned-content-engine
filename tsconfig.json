@@ -5,6 +5,13 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
+
+    "baseUrl": ".",
+    "paths": {
+      "#core": ["./src/index.ts"],
+      "#core/internal": ["./src/operations/internal.ts"]
+    },
+
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
 

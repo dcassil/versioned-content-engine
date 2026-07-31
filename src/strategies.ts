@@ -61,12 +61,12 @@ export class DefaultIdStrategy implements IdStrategy {
 
   newId(): Id {
     this.#counter += 1;
-    return `${this.#prefix}-id-${this.#counter}` as Id;
+    return `${this.#prefix}-id-${String(this.#counter)}` as Id;
   }
 
   newCollectionId(): ContentCollectionId {
     this.#counter += 1;
-    return `${this.#prefix}-col-${this.#counter}` as ContentCollectionId;
+    return `${this.#prefix}-col-${String(this.#counter)}` as ContentCollectionId;
   }
 }
 

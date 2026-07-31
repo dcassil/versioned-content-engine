@@ -106,7 +106,7 @@ function stateFrom(records: readonly FixtureRecord[]): FixtureState {
   for (const [t, rs] of map) {
     frozen.set(t, Object.freeze([...rs]));
   }
-  return frozen as FixtureState;
+  return frozen;
 }
 
 /** Build a frozen {@link FixtureSnapshot} from per-target survivor arrays. */
@@ -117,7 +117,7 @@ function snapshotFrom(
   for (const [t, rs] of entries) {
     map.set(target(t), Object.freeze([...rs]));
   }
-  return map as FixtureSnapshot;
+  return map;
 }
 
 // ---------------------------------------------------------------------------

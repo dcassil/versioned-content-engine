@@ -26,7 +26,7 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createJsonAdapter } from "../../src/adapters/json/index.js";
+import { createJsonAdapter } from "../../src/adapters/json";
 import {
   runStorageAdapterParitySuite,
   type ParityContentMap,
@@ -37,7 +37,7 @@ import type {
   TargetId,
   Version,
 } from "../../src/types.js";
-import type { VersionClock } from "../../src/index.js";
+import type { VersionClock } from "../../src";
 import {
   createContent,
   updateContent,
@@ -45,8 +45,8 @@ import {
   materialize,
   createSequenceIdStrategy,
   createDefaultVersionClock,
-} from "../../src/index.js";
-import type { OperationDeps } from "../../src/index.js";
+} from "../../src";
+import type { OperationDeps } from "../../src";
 
 // ---------------------------------------------------------------------------
 // Ephemeral temp-file management — a fresh dir per test, cleaned in afterEach.
@@ -108,7 +108,7 @@ describe("createJsonAdapter — JSON-specific behavior", () => {
   function normalize(
     state: ContentState<ParityContentMap>,
     v: Version,
-  ): ReadonlyArray<readonly [string, readonly ContentRecord<ParityContentMap>[]]> {
+  ): readonly (readonly [string, readonly ContentRecord<ParityContentMap>[]])[] {
     return [...materialize(state, v).entries()]
       .map(([t, records]) => [t as unknown as string, [...records]] as const)
       .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));

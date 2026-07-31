@@ -39,7 +39,7 @@ import type {
   ContentState,
   ContentTypeMap,
   Id,
-} from "./../types.js";
+} from "../types.js";
 import { appendRecord, draftVersionFor, winnerForAcrossTargets } from "./internal.js";
 import type { OperationDeps } from "./create.js";
 

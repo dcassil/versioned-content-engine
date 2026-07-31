@@ -35,10 +35,10 @@ import type {
   ContentRecord,
   ContentState,
   ContentTypeMap,
-} from "../../types.js";
-import type { VersionClock } from "../../strategies.js";
-import { createDefaultVersionClock } from "../../strategies.js";
-import { appendRecord } from "../../operations/internal.js";
+  VersionClock,
+} from "#core";
+import { createDefaultVersionClock } from "#core";
+import { appendRecord } from "#core/internal";
 import type { StorageAdapter } from "../types.js";
 
 export type { StorageAdapter } from "../types.js";
@@ -67,7 +67,7 @@ function copyState<TMap extends ContentTypeMap>(
   source: ContentState<TMap> | undefined,
 ): ContentState<TMap> {
   const next = new Map(source ?? []);
-  return Object.freeze(next) as ContentState<TMap>;
+  return Object.freeze(next);
 }
 
 /**

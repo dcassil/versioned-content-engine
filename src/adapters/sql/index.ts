@@ -30,7 +30,7 @@
  * row). `load` is an ordered SELECT of the log; the clock lives in its own row.
  */
 
-import type { ContentTypeMap } from "../../types.js";
+import type { ContentTypeMap } from "#core";
 import type { StorageAdapter } from "../types.js";
 
 export type { StorageAdapter } from "../types.js";

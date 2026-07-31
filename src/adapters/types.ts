@@ -33,8 +33,12 @@
  * same interface. Callers `await` the result unconditionally.
  */
 
-import type { ContentRecord, ContentState, ContentTypeMap } from "../types.js";
-import type { VersionClock } from "../strategies.js";
+import type {
+  ContentRecord,
+  ContentState,
+  ContentTypeMap,
+  VersionClock,
+} from "#core";
 
 /**
  * A pluggable persistence boundary for the append-only content log and the

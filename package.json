@@ -27,6 +27,16 @@
   "files": [
     "dist"
   ],
+  "imports": {
+    "#core": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "#core/internal": {
+      "types": "./dist/operations/internal.d.ts",
+      "import": "./dist/operations/internal.js"
+    }
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -68,25 +78,43 @@
     "coverage": "vitest run --coverage",
     "bench": "vitest bench --run bench/materialize.bench.ts",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs",
-    "lint:deps": "depcruise src --config .dependency-cruiser.cjs"
+    "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.2",
+    "@eslint/js": "^10.0.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^26.1.2",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitest/coverage-v8": "^2.1.8",
     "dependency-cruiser": "^16.4.2",
+    "eslint": "^10.8.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.1.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "fast-check": "^3.23.1",
+    "husky": "^9.1.7",
     "jsdom": "^25.0.1",
+    "lint-staged": "^17.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.65.0",
     "vitest": "^2.1.8"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
+    ]
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --max-warnings=0"
     ]
   }
 }

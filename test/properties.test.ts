@@ -90,7 +90,7 @@ function deepFreezeState(state: TestState): TestState {
     }
     Object.freeze(records);
   }
-  return Object.freeze(state) as TestState;
+  return Object.freeze(state);
 }
 
 // ---------------------------------------------------------------------------
@@ -130,7 +130,7 @@ const recordArb: fc.Arbitrary<TestRecord> = fc
         deleted: r.deleted,
         type: "text" as const,
         payload: { value: r.value },
-      }) as TestRecord,
+      }),
   );
 
 /**
@@ -149,7 +149,7 @@ const stateArb: fc.Arbitrary<TestState> = fc
         bucket.push(r);
       }
     }
-    return map as TestState;
+    return map;
   });
 
 const versionArb: fc.Arbitrary<Version> = fc
@@ -406,7 +406,7 @@ describe("property: reindex produces dense 0-based canonical ordering", () => {
                 deleted: false,
                 type: "text" as const,
                 payload: { value: c },
-              }) as TestRecord,
+              }),
           ),
         ),
       ),
@@ -449,7 +449,7 @@ describe("canonicalCompare exercises both collectionId tie-break directions", ()
       deleted: false,
       type: "text" as const,
       payload: { value: collectionId },
-    }) as TestRecord;
+    });
 
   it("primary key is index; equal index tie-breaks ascending collectionId", () => {
     // primary: ascending index

@@ -33,8 +33,8 @@ import type {
   Id,
   ContentCollectionId,
   TargetId,
-} from "./../types.js";
-import type { IdStrategy, VersionClock } from "./../strategies.js";
+} from "../types.js";
+import type { IdStrategy, VersionClock } from "../strategies.js";
 import { appendRecord, draftVersionFor } from "./internal.js";
 
 /**

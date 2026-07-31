@@ -70,7 +70,7 @@ function deepFreeze(state: TestState): TestState {
     for (const r of records) Object.freeze(r);
     Object.freeze(records);
   }
-  return Object.freeze(state) as TestState;
+  return Object.freeze(state);
 }
 
 const EMPTY: TestState = deepFreeze(new Map());

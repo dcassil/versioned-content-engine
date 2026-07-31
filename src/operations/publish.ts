@@ -36,7 +36,7 @@
  * yields a fresh clock — so all of it is safe on deeply-frozen inputs.
  */
 
-import { materialize } from "./../materialize.js";
+import { materialize } from "../materialize.js";
 import { nextVersion } from "./internal.js";
 import type {
   AnyContentTypeMap,
@@ -44,8 +44,8 @@ import type {
   ContentState,
   ContentTypeMap,
   Version,
-} from "./../types.js";
-import type { VersionClock } from "./../strategies.js";
+} from "../types.js";
+import type { VersionClock } from "../strategies.js";
 
 /**
  * Result of {@link publish}: the (unchanged) append-only `state` paired with the

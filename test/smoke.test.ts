@@ -8,7 +8,7 @@ import {
   IntegerVersionClock,
   type IdStrategy,
   type VersionClock,
-} from "../src/index.js";
+} from "../src";
 
 describe("scaffold smoke", () => {
   it("exports a default id strategy that mints distinct ids", () => {

@@ -76,7 +76,7 @@ function rec(args: {
     deleted: args.deleted,
     type: "text" as const,
     payload: { value: args.value } as const,
-  }) as TestRecord;
+  });
 }
 
 /** Build a frozen state from a flat record list (grouped by target). */
@@ -86,7 +86,7 @@ function stateFrom(records: readonly TestRecord[]): TestState {
     const prev = map.get(r.target) ?? [];
     map.set(r.target, [...prev, r]);
   }
-  return map as TestState;
+  return map;
 }
 
 /** Deep-freeze a state: the map, each target array, and each record. */
@@ -98,7 +98,7 @@ function deepFreeze(state: TestState): TestState {
     }
     Object.freeze(records);
   }
-  return Object.freeze(state) as TestState;
+  return Object.freeze(state);
 }
 
 /** Deterministic deps: sequence ids + a clock whose `live()` is `live`. */

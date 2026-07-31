@@ -33,8 +33,8 @@ import type {
   ContentTypeMap,
   TargetId,
   Version,
-} from "./../types.js";
-import type { VersionClock } from "./../strategies.js";
+} from "../types.js";
+import type { VersionClock } from "../strategies.js";
 
 /**
  * The next version after `v` — the draft version relative to a live `v`
@@ -83,7 +83,7 @@ export function appendRecord<TMap extends ContentTypeMap = AnyContentTypeMap>(
   const next = new Map<TargetId, readonly ContentRecord<TMap>[]>(state); // shallow map copy
   const prev = state.get(target) ?? [];
   next.set(target, Object.freeze([...prev, record])); // NEW array; old target arrays shared
-  return Object.freeze(next) as ContentState<TMap>;
+  return Object.freeze(next);
 }
 
 /**

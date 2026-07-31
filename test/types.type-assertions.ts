@@ -19,7 +19,7 @@ import type {
   Id,
   TargetId,
   Version,
-} from "../src/index.js";
+} from "../src";
 
 interface DemoContent {
   heading: { readonly text: string };

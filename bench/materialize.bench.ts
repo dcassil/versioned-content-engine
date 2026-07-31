@@ -84,13 +84,13 @@ function buildLog(opts: {
           deleted,
           type: "text" as const,
           payload: { value: `v${e}` },
-        } as BenchRecord);
+        });
         total += 1;
       }
     }
     map.set(target, records);
   }
-  return { state: map as BenchState, totalRecords: total, maxVersion };
+  return { state: map, totalRecords: total, maxVersion };
 }
 
 // A "realistically large" content-authoring surface, generously oversized:
@@ -135,7 +135,7 @@ describe(`materialize over ${totalRecords} records`, () => {
   const live = timeOnce(liveVersion);
   const draft = timeOnce(draftVersion);
   const hist = timeOnce(historicalVersion);
-  // eslint-disable-next-line no-console
+   
   console.log(
     `\n[materialize benchmark] ${totalRecords} records, ${maxVersion} versions\n` +
       `  live       (v${maxVersion}) : ${live.toFixed(4)} ms/op\n` +

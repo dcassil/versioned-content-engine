@@ -1,6 +1,16 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "#core/internal": fileURLToPath(
+        new URL("./src/operations/internal.ts", import.meta.url),
+      ),
+      "#core": fileURLToPath(new URL("./src/index.ts", import.meta.url)),
+    },
+  },
   test: {
     // Property/example tests live in `test/`; unit `.test.ts` may also live in
     // `src/`. Benchmarks (`bench/`) are deliberately EXCLUDED so the default

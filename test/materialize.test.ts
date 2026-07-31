@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { materialize, reindex } from "../src/index.js";
+import { materialize, reindex } from "../src";
 import type {
   ContentCollectionId,
   ContentRecord,
@@ -22,7 +22,7 @@ import type {
   Id,
   TargetId,
   Version,
-} from "../src/index.js";
+} from "../src";
 import {
   EVENT_LOG_STATE,
   workedExamples,
@@ -70,7 +70,7 @@ function stateOf(records: readonly FixtureRecord[]): FixtureState {
       bucket.push(r);
     }
   }
-  return map as unknown as FixtureState;
+  return map;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +232,7 @@ describe("materialize — spec §2.2 version-timeline invariant", () => {
   const state: ContentState = stateOf([
     rec({ collectionId: "X", id: "r1", version: 1, index: 0, target: "T", deleted: false, value: "X" }),
     rec({ collectionId: "X", id: "r2", version: 2, index: 0, target: "T", deleted: true, value: "X" }),
-  ]) as unknown as ContentState;
+  ]);
 
   it("materialize(state, 1) shows X (delete at v2 does not reach back)", () => {
     const t = (materialize(state, ver(1)) as ContentState).get(target("T"));

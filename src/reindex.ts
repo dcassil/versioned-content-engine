@@ -76,7 +76,7 @@ export function reindex<TMap extends ContentTypeMap = AnyContentTypeMap>(
   sorted.sort(canonicalCompare);
   const out: ContentRecord<TMap>[] = sorted.map(
     (record, position) =>
-      ({ ...record, index: position }) as ContentRecord<TMap>, // NEW record, dense index
+      ({ ...record, index: position }), // NEW record, dense index
   );
   return Object.freeze(out);
 }

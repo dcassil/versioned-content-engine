@@ -17,8 +17,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createMemoryAdapter } from "../../src/adapters/memory/index.js";
-import type { StorageAdapter } from "../../src/adapters/memory/index.js";
+import { createMemoryAdapter } from "../../src/adapters/memory";
+import type { StorageAdapter } from "../../src/adapters/memory";
 import {
   runStorageAdapterParitySuite,
   type ParityContentMap,
@@ -29,12 +29,12 @@ import type {
   TargetId,
   Version,
 } from "../../src/types.js";
-import type { VersionClock } from "../../src/index.js";
+import type { VersionClock } from "../../src";
 import {
   createContent,
   createDefaultVersionClock,
   createSequenceIdStrategy,
-} from "../../src/index.js";
+} from "../../src";
 import { appendRecord } from "../../src/operations/internal.js";
 
 // ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ function createArrayLogAdapter<
 }
 
 runStorageAdapterParitySuite("array-log dummy (reusability proof)", () =>
-  createArrayLogAdapter<ParityContentMap>(),
+  createArrayLogAdapter(),
 );
 
 // ---------------------------------------------------------------------------

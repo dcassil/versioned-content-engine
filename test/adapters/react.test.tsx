@@ -29,19 +29,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   useVersionedContent,
   type UseVersionedContent,
-} from "../../src/adapters/react/index.js";
-import { createMemoryAdapter } from "../../src/adapters/memory/index.js";
+} from "../../src/adapters/react";
+import { createMemoryAdapter } from "../../src/adapters/memory";
 import {
   createSequenceIdStrategy,
   createDefaultVersionClock,
-} from "../../src/index.js";
+} from "../../src";
 import type {
   ContentSnapshot,
   IdStrategy,
   TargetId,
   Version,
   VersionClock,
-} from "../../src/index.js";
+} from "../../src";
 import type { StorageAdapter } from "../../src/adapters/types.js";
 
 // ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ async function renderReady(
   const rendered = renderHook(() =>
     useVersionedContent<DemoMap>({ adapter, clock, idStrategy }),
   );
-  await waitFor(() => expect(rendered.result.current.loading).toBe(false));
+  await waitFor(() => { expect(rendered.result.current.loading).toBe(false); });
   return rendered;
 }
 
@@ -154,7 +154,7 @@ describe("useVersionedContent", () => {
     expect(headings(result.current.snapshot)).toEqual(["draft-only"]);
 
     // Live view does NOT see the unpublished draft edit.
-    act(() => result.current.showLive());
+    act(() => { result.current.showLive(); });
     expect(headings(result.current.snapshot)).toEqual(["published"]);
 
     // Publishing advances live to the draft; the edit becomes visible in live.
@@ -191,17 +191,17 @@ describe("useVersionedContent", () => {
     });
 
     // Live (v2) now shows the collection tombstoned → empty.
-    act(() => result.current.showLive());
+    act(() => { result.current.showLive(); });
     expect(headings(result.current.snapshot)).toEqual([]);
 
     // Navigate BACK one version (to the pre-delete v1); the collection reappears
     // read-only — no state was mutated to produce it.
-    act(() => result.current.goBack());
+    act(() => { result.current.goBack(); });
     expect(headings(result.current.snapshot)).toEqual(["v1-text"]);
     expect(result.current.view).toBe(1 as Version);
 
     // Navigate FORWARD again returns to the deleted (empty) v2.
-    act(() => result.current.goForward());
+    act(() => { result.current.goForward(); });
     expect(headings(result.current.snapshot)).toEqual([]);
     expect(result.current.view).toBe(2 as Version);
   });
@@ -252,7 +252,7 @@ describe("useVersionedContent", () => {
       const slowAdapter: StorageAdapter<DemoMap> = {
         load: () =>
           new Promise((resolve) => {
-            releaseLoad = () => resolve(base.load());
+            releaseLoad = () => { resolve(base.load()); };
           }),
         append: (records) => base.append(records),
         getClock: () => base.getClock(),
