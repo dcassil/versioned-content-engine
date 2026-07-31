@@ -57,6 +57,11 @@ export default tseslint.config(
       "import/resolver": {
         typescript: { alwaysTryTypes: true, project: "./tsconfig.json" },
       },
+      // Silence the residual v7 advisory for the `mode` element-descriptor option.
+      // Migrating `mode` to v7's file-based classification changes matching
+      // semantics (risking the boundary set), so it is deferred; the boundary
+      // enforcement itself is fully on the non-deprecated `dependencies` rule.
+      "boundaries/legacy-warnings": false,
       // Module-boundary elements — most specific patterns FIRST so a file is
       // classified as exactly one element.
       // Elements are defined with NON-NESTING patterns: no element's pattern is
