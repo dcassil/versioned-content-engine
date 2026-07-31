@@ -1,8 +1,8 @@
 name: CI
 
 # Recruiter-facing green-badge CI for the pure core: install -> typecheck ->
-# test -> purity gate. Fast (no benchmark; `pnpm bench` is intentionally out of
-# the default run). Coverage thresholds are enforced inside `pnpm coverage`,
+# lint -> test -> build -> purity gate. Fast (no benchmark; `pnpm bench` is
+# intentionally out of the default run). Coverage thresholds are enforced inside `pnpm coverage`,
 # which supersets `pnpm test`, so we run it here to gate on the >=95% bar too.
 
 on:
@@ -36,11 +36,14 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: Lint
+        run: pnpm run lint
+
       - name: Test + coverage (>=95% enforced)
         run: pnpm coverage
 
-      - name: Purity gate (dependency-cruiser)
-        run: pnpm run depcruise
-
       - name: Build (ESM + declarations)
         run: pnpm build
+
+      - name: Purity gate (dependency-cruiser)
+        run: pnpm run depcruise
