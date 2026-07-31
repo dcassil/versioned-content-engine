@@ -60,9 +60,10 @@ export default tseslint.config(
       // Module-boundary elements — most specific patterns FIRST so a file is
       // classified as exactly one element.
       // Elements are defined with NON-NESTING patterns: no element's pattern is
-      // an ancestor path of another's, so `boundaries/no-private` never treats a
-      // public entry (`core-barrel`, `core-internal`) as a private child of
-      // `core`. Each source file matches exactly one element.
+      // an ancestor path of another's, so cross-element imports resolve to
+      // exactly one public entry (`core-barrel`, `core-internal`) and are never
+      // treated as a private child of `core`. Each source file matches exactly
+      // one element.
       "boundaries/elements": [
         // The public core entry (`#core`) — the barrel adapters import.
         { type: "core-barrel", pattern: "src/index.ts", mode: "full" },
@@ -149,60 +150,73 @@ export default tseslint.config(
       ],
 
       // ── MODULE BOUNDARIES ────────────────────────────────────────────────
-      "boundaries/element-types": [
+      "boundaries/dependencies": [
         "error",
         {
           default: "disallow",
           message:
-            "Boundary violation: '{{from}}' may not import '{{to}}'. Allowed edges are declared in eslint.config.mjs (adapters import the core public entry only; core is a leaf).",
-          rules: [
+            "Boundary violation: '{{from.type}}' may not import '{{to.type}}'. Allowed edges are declared in eslint.config.mjs (adapters import the core public entry only; core is a leaf).",
+          policies: [
             // The pure core is a LEAF: it may only import itself and the shared
             // internal append primitive. It may NOT import any adapter.
             {
-              from: ["core"],
-              allow: ["core", "core-internal"],
+              from: { element: { type: "core" } },
+              allow: { to: { element: { types: { anyOf: ["core", "core-internal"] } } } },
               message:
                 "core must stay framework/storage-free — it is a leaf and may not import an adapter (memory/json/sql/react) or React.",
             },
             {
-              from: ["core-internal"],
-              allow: ["core", "core-internal"],
+              from: { element: { type: "core-internal" } },
+              allow: { to: { element: { types: { anyOf: ["core", "core-internal"] } } } },
             },
             // The public barrel re-exports the core; it too must not reach an adapter.
             {
-              from: ["core-barrel"],
-              allow: ["core", "core-internal"],
+              from: { element: { type: "core-barrel" } },
+              allow: { to: { element: { types: { anyOf: ["core", "core-internal"] } } } },
               message:
                 "the core public barrel (src/index.ts) re-exports the leaf core only — it may not import an adapter.",
             },
             // The adapter contract is interface-only over the core's public types.
             {
-              from: ["adapter-contract"],
-              allow: ["core-barrel"],
+              from: { element: { type: "adapter-contract" } },
+              allow: { to: { element: { type: "core-barrel" } } },
             },
             // Each adapter may import the core public entry, the shared internal
             // append primitive, and the adapter contract — NEVER a sibling adapter.
             {
-              from: [
-                "adapter-memory",
-                "adapter-json",
-                "adapter-sql",
-                "adapter-react",
-              ],
-              allow: ["core-barrel", "core-internal", "adapter-contract"],
+              from: {
+                element: {
+                  types: {
+                    anyOf: [
+                      "adapter-memory",
+                      "adapter-json",
+                      "adapter-sql",
+                      "adapter-react",
+                    ],
+                  },
+                },
+              },
+              allow: {
+                to: {
+                  element: {
+                    types: {
+                      anyOf: ["core-barrel", "core-internal", "adapter-contract"],
+                    },
+                  },
+                },
+              },
               message:
                 "an adapter may import the core public entry (`#core`), the shared internal primitive (`#core/internal`), and the adapter contract only — NEVER a sibling adapter.",
             },
             // Fixtures (worked examples) exercise the core public surface.
             {
-              from: ["fixtures"],
-              allow: ["core-barrel", "core"],
+              from: { element: { type: "fixtures" } },
+              allow: { to: { element: { types: { anyOf: ["core-barrel", "core"] } } } },
             },
           ],
         },
       ],
-      "boundaries/no-private": "error",
-      "boundaries/no-unknown": "error",
+      "boundaries/no-unknown-dependencies": "error",
     },
   },
 
