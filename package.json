@@ -1,6 +1,6 @@
 {
   "name": "versioned-content-engine",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Headless, zero-runtime-dependency pure TypeScript engine for versioned content materialization.",
   "type": "module",
   "license": "MIT",
