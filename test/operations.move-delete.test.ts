@@ -203,7 +203,9 @@ describe("moveContent (§3 move, REQ-004)", () => {
     expect(String(moved.collectionId)).toBe("P");
     expect(String(moved.id)).toBe("p2");
     expect(Number(moved.version)).toBe(2);
-    expect(moved.index).toBe(5);
+    // Half-step below the requested index (SVER-T-0031): stored as 4.5, reindexed
+    // to a dense integer on read. See moveContent's same-target branch.
+    expect(moved.index).toBe(4.5);
     expect(String(moved.target)).toBe("target-a");
     expect(moved.deleted).toBe(false);
 
@@ -212,6 +214,55 @@ describe("moveContent (§3 move, REQ-004)", () => {
     expect(snap.map((r) => String(r.collectionId))).toEqual(["Q", "P"]);
     // At v1 (before the move): original order preserved [P, Q].
     expect(materialize(next, v(1)).get(A)!.map((r) => String(r.collectionId))).toEqual(["P", "Q"]);
+  });
+
+  // SVER-T-0031 REGRESSION: drag-to-position lands the moved item AT the index of
+  // an existing survivor. Before the fix, reindex's equal-index tie-break (asc
+  // collectionId) — not the requested position — decided the final order, so the
+  // on-page reorder silently landed the item in the wrong slot.
+  it("same-target drag-to-front: move last item to index 0 puts it FIRST regardless of collectionId order", () => {
+    // A(0), B(1), C(2). Drag C to the top (drop index 0, colliding with A).
+    const state = deepFreeze(
+      stateFrom([
+        rec({ collectionId: "A", id: "a1", version: 1, index: 0, target: A, deleted: false, value: "A" }),
+        rec({ collectionId: "B", id: "b1", version: 1, index: 1, target: A, deleted: false, value: "B" }),
+        rec({ collectionId: "C", id: "c1", version: 1, index: 2, target: A, deleted: false, value: "C" }),
+      ]),
+    );
+    const next = moveContent(state, { collectionId: col("C"), source: A, dest: A, index: 0 }, makeDeps(["c2"], 1));
+    const order = materialize(next, v(2)).get(A)!.map((r) => String(r.collectionId));
+    expect(order).toEqual(["C", "A", "B"]);
+  });
+
+  it("same-target drag-to-middle: dropping first item BEFORE the last survivor reorders it there", () => {
+    // A(0), B(1), C(2). The drop index is a slot index in the current list:
+    // "insert before the survivor at this index". To move A after B, drop at
+    // index 2 (before C) -> [B, A, C]. The half-step (index - 0.5 = 1.5) sorts A
+    // strictly after B(1) and before C(2).
+    const state = deepFreeze(
+      stateFrom([
+        rec({ collectionId: "A", id: "a1", version: 1, index: 0, target: A, deleted: false, value: "A" }),
+        rec({ collectionId: "B", id: "b1", version: 1, index: 1, target: A, deleted: false, value: "B" }),
+        rec({ collectionId: "C", id: "c1", version: 1, index: 2, target: A, deleted: false, value: "C" }),
+      ]),
+    );
+    const next = moveContent(state, { collectionId: col("A"), source: A, dest: A, index: 2 }, makeDeps(["a2"], 1));
+    const order = materialize(next, v(2)).get(A)!.map((r) => String(r.collectionId));
+    expect(order).toEqual(["B", "A", "C"]);
+  });
+
+  it("cross-target drag onto an occupied index: moved item lands at the requested slot", () => {
+    // A has M(0). B has N(0), O(1). Move M from A to B at index 0 (colliding with N).
+    const state = deepFreeze(
+      stateFrom([
+        rec({ collectionId: "M", id: "m1", version: 1, index: 0, target: A, deleted: false, value: "M" }),
+        rec({ collectionId: "N", id: "n1", version: 1, index: 0, target: B, deleted: false, value: "N" }),
+        rec({ collectionId: "O", id: "o1", version: 1, index: 1, target: B, deleted: false, value: "O" }),
+      ]),
+    );
+    const next = moveContent(state, { collectionId: col("M"), source: A, dest: B, index: 0 }, makeDeps(["m-t", "m-l"], 1));
+    const order = materialize(next, v(2)).get(B)!.map((r) => String(r.collectionId));
+    expect(order).toEqual(["M", "N", "O"]);
   });
 
   it("cross-target move: source tombstone + dest live record; materialize shows the item moved", () => {
@@ -245,7 +296,8 @@ describe("moveContent (§3 move, REQ-004)", () => {
     expect(String(dest.collectionId)).toBe("M");
     expect(String(dest.id)).toBe("m-live");
     expect(String(dest.target)).toBe("target-b");
-    expect(dest.index).toBe(3);
+    // Half-step below the requested index (SVER-T-0031): stored as 2.5.
+    expect(dest.index).toBe(2.5);
 
     // At draft v2: A no longer materializes M (only M was there -> A omitted);
     // B materializes both N and M.

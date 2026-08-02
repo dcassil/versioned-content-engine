@@ -10,9 +10,13 @@
  * the move is a no-op returning the SAME `state` reference. Otherwise:
  *
  *   - SAME-target move (`source === dest`): append ONE `deleted:false` record for
- *     the collection at the desired `index` (§3.1 in-target reorder). Prior
- *     records are untouched; `materialize`'s reindex (§4) normalizes final dense
- *     positions on read.
+ *     the collection at a HALF-STEP BELOW the desired `index` (`index - 0.5`, §3.1
+ *     in-target reorder; SVER-T-0031). A drag drop lands the item at the index of
+ *     an existing survivor; a plain integer index would collide there and reindex's
+ *     equal-index tie-break (asc `collectionId`) — not the requested position —
+ *     would decide the order, silently misplacing the item. The half-step sorts
+ *     strictly into the requested slot with no tie. Prior records are untouched;
+ *     `materialize`'s reindex (§4) normalizes final dense integer positions on read.
  *   - CROSS-target move (`source !== dest`): append TWO records at the SAME draft
  *     version (§3.2, mirroring `content.js` `set()`):
  *       1. a `{ ...winner, deleted: true }` TOMBSTONE that stays in `source`, so
@@ -97,12 +101,27 @@ export function moveContent<
 
   if (args.source === args.dest) {
     // ---- in-target reorder: one new live record at the new index (§3.1) ----
+    //
+    // SVER-T-0031 (drag-to-position fix): reindex's display tie-break at an equal
+    // `index` falls back to ascending `collectionId`, NOT to the move intent. A
+    // drag drop lands the moved item AT the index currently occupied by another
+    // survivor, so a plain integer `args.index` collides with the incumbent at
+    // that slot and the collectionId tie-break — not the requested position —
+    // decides the final order. That silently drops the moved item at the wrong
+    // place (the on-page reorder appears not to work).
+    //
+    // Emit the moved record at a HALF-STEP BELOW the requested index
+    // (`args.index - 0.5`). This sorts it strictly after every survivor with
+    // index `<= args.index - 1` and strictly before every survivor with index
+    // `>= args.index` — i.e. into the requested slot — with no equal-index tie to
+    // resolve. `materialize`'s reindex (§4) then normalizes all survivors back to
+    // dense 0-based integers on read, so the fractional index never escapes.
     const movedId: Id = deps.idStrategy.newId();
     const moved = Object.freeze({
       ...winner,
       id: movedId,
       version,
-      index: args.index,
+      index: args.index - 0.5,
     }) as ContentRecord<TMap>;
     return appendRecord(state, args.dest, moved);
   }
@@ -128,7 +147,11 @@ export function moveContent<
     version,
     target: args.dest,
     deleted: false,
-    index: args.index,
+    // Half-step below the requested index for the same reason as the same-target
+    // reorder above: land in the requested slot without colliding with an
+    // incumbent survivor at `args.index` (whose collectionId tie-break would
+    // otherwise decide order). Reindex normalizes to dense integers on read.
+    index: args.index - 0.5,
   }) as ContentRecord<TMap>;
   return appendRecord(withTombstone, args.dest, moved);
 }
