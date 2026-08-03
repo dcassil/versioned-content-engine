@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  asVersion,
   createDefaultIdStrategy,
   createDefaultVersionClock,
+  createFixedIdStrategy,
   createSequenceIdStrategy,
   DefaultIdStrategy,
   IntegerVersionClock,
@@ -38,5 +40,22 @@ describe("scaffold smoke", () => {
     expect(String(strategy.newId())).toBe("x");
     expect(String(strategy.newCollectionId())).toBe("c");
     expect(() => strategy.newId()).toThrow(/ran out of ids/);
+  });
+
+  it("fixed id strategy returns the fixed collection id every call", () => {
+    const strategy: IdStrategy = createFixedIdStrategy("seeded-col");
+    expect(String(strategy.newCollectionId())).toBe("seeded-col");
+    expect(String(strategy.newCollectionId())).toBe("seeded-col");
+  });
+
+  it("fixed id strategy yields monotonic derived record ids", () => {
+    const strategy = createFixedIdStrategy("seeded-col");
+    expect(String(strategy.newId())).toBe("seeded-col#0");
+    expect(String(strategy.newId())).toBe("seeded-col#1");
+    expect(String(strategy.newId())).toBe("seeded-col#2");
+  });
+
+  it("asVersion preserves the numeric version value", () => {
+    expect(Number(asVersion(42))).toBe(42);
   });
 });

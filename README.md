@@ -116,10 +116,10 @@ the delete still materializes the content exactly as it was.
 
 ### Strategies
 - `createDefaultIdStrategy(prefix?)`, `createDefaultVersionClock(start = 0)` — production defaults.
-- `createSequenceIdStrategy(ids, collectionIds)`, `IntegerVersionClock(value?)`, `DefaultIdStrategy` — deterministic building blocks for tests.
+- `createFixedIdStrategy(collectionId)`, `createSequenceIdStrategy(ids, collectionIds)`, `IntegerVersionClock(value?)`, `DefaultIdStrategy` — deterministic building blocks for tests and seeded/imported content.
 
 ### Types
-`Id`, `ContentCollectionId`, `TargetId`, `Version` (opaque branded types — cast at the boundary, e.g. `"hero" as TargetId`), `ContentRecord`, `ContentState`, `ContentSnapshot`, `ContentTypeMap`, `IdStrategy`, `VersionClock`, plus the per-operation arg types.
+`Id`, `ContentCollectionId`, `TargetId`, `Version` (opaque branded types), `asId`, `asCollectionId`, `asTargetId`, `asVersion`, `ContentRecord`, `ContentState`, `ContentSnapshot`, `ContentTypeMap`, `IdStrategy`, `VersionClock`, plus the per-operation arg types.
 
 ---
 

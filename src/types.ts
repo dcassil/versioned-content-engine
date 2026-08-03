@@ -62,6 +62,30 @@ export type TargetId = Branded<string, "TargetId">;
 export type Version = Branded<number, "Version">;
 
 // ---------------------------------------------------------------------------
+// Branded value constructors
+// ---------------------------------------------------------------------------
+
+/** Attach the engine's opaque `Id` brand to a boundary string. */
+export function asId(value: string): Id {
+  return value as Id;
+}
+
+/** Attach the engine's opaque `ContentCollectionId` brand to a boundary string. */
+export function asCollectionId(value: string): ContentCollectionId {
+  return value as ContentCollectionId;
+}
+
+/** Attach the engine's opaque `TargetId` brand to a boundary string. */
+export function asTargetId(value: string): TargetId {
+  return value as TargetId;
+}
+
+/** Attach the engine's opaque `Version` brand to a boundary number. */
+export function asVersion(value: number): Version {
+  return value as Version;
+}
+
+// ---------------------------------------------------------------------------
 // Content-type map
 // ---------------------------------------------------------------------------
 

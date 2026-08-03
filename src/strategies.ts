@@ -10,7 +10,14 @@
  * (`useContent.tsx`) and the global integer counter (`server/data/version.js`).
  */
 
-import type { ContentCollectionId, Id, Version } from "./types.js";
+import {
+  asCollectionId,
+  asId,
+  asVersion,
+  type ContentCollectionId,
+  type Id,
+  type Version,
+} from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -61,12 +68,12 @@ export class DefaultIdStrategy implements IdStrategy {
 
   newId(): Id {
     this.#counter += 1;
-    return `${this.#prefix}-id-${String(this.#counter)}` as Id;
+    return asId(`${this.#prefix}-id-${String(this.#counter)}`);
   }
 
   newCollectionId(): ContentCollectionId {
     this.#counter += 1;
-    return `${this.#prefix}-col-${String(this.#counter)}` as ContentCollectionId;
+    return asCollectionId(`${this.#prefix}-col-${String(this.#counter)}`);
   }
 }
 
@@ -87,7 +94,7 @@ export function createSequenceIdStrategy(
         throw new Error("createSequenceIdStrategy: ran out of ids");
       }
       idIndex += 1;
-      return value as Id;
+      return asId(value);
     },
     newCollectionId(): ContentCollectionId {
       const value = collectionIds[colIndex];
@@ -95,7 +102,7 @@ export function createSequenceIdStrategy(
         throw new Error("createSequenceIdStrategy: ran out of collectionIds");
       }
       colIndex += 1;
-      return value as ContentCollectionId;
+      return asCollectionId(value);
     },
   };
 }
@@ -116,7 +123,7 @@ export class IntegerVersionClock implements VersionClock {
   }
 
   live(): Version {
-    return this.#value as Version;
+    return asVersion(this.#value);
   }
 
   advance(): VersionClock {
@@ -129,6 +136,27 @@ export function createDefaultIdStrategy(prefix?: string): IdStrategy {
   return prefix === undefined
     ? new DefaultIdStrategy()
     : new DefaultIdStrategy(prefix);
+}
+
+/**
+ * Construct an `IdStrategy` that always returns the supplied collection id and
+ * derives monotonic record ids from it. Useful for seeded/imported content that
+ * must preserve a stable logical collection id.
+ */
+export function createFixedIdStrategy(collectionId: string): IdStrategy {
+  let idIndex = 0;
+  const fixedCollectionId = asCollectionId(collectionId);
+
+  return {
+    newId(): Id {
+      const id = asId(`${collectionId}#${String(idIndex)}`);
+      idIndex += 1;
+      return id;
+    },
+    newCollectionId(): ContentCollectionId {
+      return fixedCollectionId;
+    },
+  };
 }
 
 /** Construct a default `VersionClock` starting at `start` (default 0). */
