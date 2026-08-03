@@ -19,6 +19,7 @@ export type {
   ContentState,
   ContentSnapshot,
 } from "./types.js";
+export { asId, asCollectionId, asTargetId, asVersion } from "./types.js";
 
 export type { IdStrategy, VersionClock } from "./strategies.js";
 
@@ -49,6 +50,7 @@ export {
   DefaultIdStrategy,
   IntegerVersionClock,
   createDefaultIdStrategy,
+  createFixedIdStrategy,
   createDefaultVersionClock,
   createSequenceIdStrategy,
 } from "./strategies.js";
